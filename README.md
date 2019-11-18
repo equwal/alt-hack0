@@ -7,6 +7,7 @@ and web (woff) fonts included.
 Generated with [alt-hack](https://github.com/source-foundry/alt-hack) glyphs.
 
 The zero:
-[![forward slash](zero.png)]
+[![forward slashed zero](zero.png)]
 
-[![The old zero](hack-vertz.png)]
+The old zero:
+[![vertical slashed zero](hack-vertz.png)]
