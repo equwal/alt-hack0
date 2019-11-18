@@ -13,3 +13,5 @@ The zeros:
 
 The old zero:
 [![vertical slashed zero](hack-vertz.png)]
+
+[Code (gist) to change your font in Emacs](https://gist.github.com/equwal/89b1ef5ac8d4d737cfd37f66e9ba4895).
