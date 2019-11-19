@@ -14,14 +14,17 @@ exec ros -Q -- $0 "$@"
   (:use :cl)
   (:import-from
    :alexandria
-   :flatten)
+   :flatten
+   :compose)
   (:import-from :str :concat)
   (:import-from :utils :collect :group :mapatoms)
   (:import-from
    :uiop
+   :copy-file
+   :resolve-symlinks
    :directory-files
    :subdirectories
-   :launch-program))
+   :run-program))
 (in-package :ros.script.generator.3783095582)
 ;;; Uses a magic symlinks to deal with directories. Make sure they exist in your
 ;;; toplevel:
@@ -31,43 +34,51 @@ exec ros -Q -- $0 "$@"
 ;;; - hack
 (defvar *weights* '("Bold" "BoldItalic" "Italic" "Regular"))
 
+(defun uncomment (spec)
+  (remove-if #'(lambda (item)
+                 (and (stringp item)
+                      (= 1 (length item))))
+             spec))
+
 (defparameter *groups*
-  '((one-of (curve "u0028-curved" "("
-                   "u0029-curved" ")")
+  (mapcar #'uncomment
+   '((curve "u0028-curved" "("
+      "u0029-curved" ")")
      (round "u0028-rounder" "("
-            "u0029-rounder" ")"))
-    (one-of (backslash "u0030-backslash" "0")
-            (diamond "u0030-diamond" "0")
-            (dot "u0030-dotted" "0")
-            (forwardslash "u0030-forwardslash" "0"))
-    (noslab1 "u0031-noslab" "1")
-    (flattop3 "u0033-flattop" "3")
-    (wider "u003C-wider" "<"
-           "u003E-wider" ">")
-    (knife "u0066-knife" "f")
-    (slabi "u0069-slab" "i"
-           "u00EC-slab" "ì"
-           "u00ED-slab" "í"
-           "u00EE-slab" "î"
-           "u00EF-slab" "ï"
-           "u0129-slab" "ĩ"
-           "u012B-slab" "ī"
-           "u012D-slab" "ĭ"
-           "u012F-slab" "į"
-           "u0131-slab" "ı"
-           "u0456-slab" "і"
-           "u0457-slab" "ї"))
+      "u0029-rounder" ")")
+     (backslash "u0030-backslash" "0")
+     (diamond "u0030-diamond" "0")
+     (dot "u0030-dotted" "0")
+     (forwardslash "u0030-forwardslash" "0")
+     (noslab1 "u0031-noslab" "1")
+     (flattop3 "u0033-flattop" "3")
+     (wider "u003C-wider" "<"
+      "u003E-wider" ">")
+     (knife "u0066-knife" "f")
+     (slabi "u0069-slab" "i"
+      "u00EC-slab" "ì"
+      "u00ED-slab" "í"
+      "u00EE-slab" "î"
+      "u00EF-slab" "ï"
+      "u0129-slab" "ĩ"
+      "u012B-slab" "ī"
+      "u012D-slab" "ĭ"
+      "u012F-slab" "į"
+      "u0131-slab" "ı"
+      "u0456-slab" "і"
+      "u0457-slab" "ї")))
   "Things you actually want to permute together.")
 
-(defun verify (spec)
-  (and (symbolp spec)
-       (not (eql spec 'one-of))
-       (find spec (flatten *groups*))))
-(defun mapchoices (spec)
-  "Spec should be one of the names in *groups*."
-  (if (not (verify spec))
-      (error "The spec ~A is INVALID!" spec)
-      ))
+(defun find-keyword (keyword group)
+  (when (not (null group))
+    (let ((c (car group)))
+      (if (eql keyword (car c))
+          c
+          (find-keyword keyword (cdr group))))))
+
+(defun folders (keyword)
+  (cdr (find-keyword keyword *groups*)))
+
 (defun pprint-letters (letter-alist)
   (dolist (p letter-alist)
     (format t "~S ~S~%"
@@ -86,44 +97,62 @@ exec ros -Q -- $0 "$@"
 (defun help ()
   (format t "~@{~A~%~}"
           "generator.ros SPEC+"
-          "SPEC should be one of ")
-  (format t "~{~A~%~}"
-          (remove 'one-of
-                  (remove-if #'stringp (flatten *groups*)))))
-(defun remove-hints ()
-  (let ((files (uiop:directory-files #P"tt-hinting")))
-    (dolist (f files)
-      (with-open-file (s f :direction :io)
-        (let ((line (read-line s nil nil)))
-          (when (and line (char/= #\#(elt line 0)))
-            (write-line (format nil "# ~S~%" line) s)))))))
+          "SPEC should be a list of:")
+  (format t "~{~T~A~%~}"
+          (remove-if #'stringp (flatten *groups*))))
 
-(defun put-glyphs (ufolders)
+(defun remove-hints ()
+  (let ((files (directory-files #P"tt-hinting")))
+    (dolist (f files)
+      (with-open-file (si f :direction :input)
+        (with-open-file (so f :direction :output
+                              :if-exists :supersede)
+          (let ((line (read-line si nil nil)))
+            (when (and line (char/= #\#(elt line 0)))
+              (write-line (format nil "# ~S~%" line) so))))))))
+
+(defun put-glyphs! (ufolders)
   (dolist (arg ufolders)
     (dolist (weight *weights*)
-      (launch-program (concat "cp " "glyphs/" arg "/"
-                              (string-downcase weight)
-                              "/*" " " "source/Hack-" weight
-                              ".ufo/glyphs/")))))
-(defun build (permutation)
-  (put-glyphs permutation)
-  (launch-program "make ttf && make woff"
-                  :directory #P"hack"))
+      (dolist (f (uiop:directory-files
+                  (concat "glyphs/" arg "/"
+                          (string-downcase weight) "/")))
+        (copy-file f
+                   (concat "hack/" "source/Hack-" weight
+                           ".ufo/glyphs/"
+                           (concat (pathname-name f) "."
+                                   (pathname-type f))))))))
+(defun make-it (&optional subcommand)
+  ;; Cannot use uiop:launch-program since it is asynchronous.
+  (run-program (if subcommand
+                      (list "make" subcommand)
+                      "make")
+                  :output *standard-output*
+                  :directory (resolve-symlinks #P"hack")
+                  :error-output *standard-output*))
+(defun build (&rest make-commands)
+  (dolist (m make-commands)
+    (make-it m)))
+
+(defun verify (spec)
+  (not (set-difference spec (mapcar #'car *groups*))))
 
 (defun main (&rest argv)
   (declare (ignorable argv))
   (let ((f (first argv)))
     (if (or (null argv)
-            (find #\? f)
-            (search "help" f)
-            (search "-h" f)
-            (search "-?" f))
+            (search "-?" f)
+            (search "--help" f)
+            (search "-h" f))
         (help)
-        (progn (remove-hints)
-               (build argv)))))
-
-
-
-
+        (let ((argv (mapcar (compose #'intern #'string-upcase) argv)))
+          (when (verify argv)
+            (remove-hints)
+            (mapc #'put-glyphs!
+                  (mapcar #'folders argv))
+            ;; Can't get woff2 on my system.
+            ;; (make-it "woff2")
+            ;; (make-it)
+            (build "ttf" "woff"))))))
 
 ;;; vim: set ft=lisp lisp:
