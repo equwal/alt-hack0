@@ -5,14 +5,18 @@ exec ros -Q -- $0 "$@"
 |#
 (progn ;;init forms
   (ros:ensure-asdf)
-  #+quicklisp(ql:quickload '(:alexandria :str :uiop) :silent t)
+  #+quicklisp(ql:quickload '(:alexandria :str :uiop :let-over-lambda)
+                           :silent t)
   (asdf:load-system :utils) ;My utilities, has the COLLECT macro.
   )
 
 (defpackage :ros.script.generator.3783095582
-  (:use :cl :alexandria)
+  (:use :cl)
+  (:import-from
+   :alexandria
+   :flatten)
   (:import-from :str :concat)
-  (:import-from :utils :collect :group)
+  (:import-from :utils :collect :group :mapatoms)
   (:import-from
    :uiop
    :directory-files
@@ -27,37 +31,43 @@ exec ros -Q -- $0 "$@"
 ;;; - hack
 (defvar *weights* '("Bold" "BoldItalic" "Italic" "Regular"))
 
-(defun canonicalize-groups (groups)
-  (loop for g in groups
-        collect (mapcar #'car (group g 2))))
-(defvar *groups* (canonicalize-groups
-                  '(("u0028-curved" "("
-                     "u0028-rounder" "("
-                     "u0029-curved" ")"
-                     "u0029-rounder" ")")
-                    ("u0030-backslash" "0"
-                     "u0030-diamond" "0"
-                     "u0030-dotted" "0"
-                     "u0030-forwardslash" "0")
-                    ("u0031-noslab" "1")
-                    ("u0033-flattop" "3")
-                    ("u003C-wider" "<")
-                    ("u003E-wider" ">")
-                    ("u0066-knife" "f")
-                    ("u0069-slab" "i"
-                     "u00EC-slab" "ì"
-                     "u00ED-slab" "í"
-                     "u00EE-slab" "î"
-                     "u00EF-slab" "ï"
-                     "u0129-slab" "ĩ"
-                     "u012B-slab" "ī"
-                     "u012D-slab" "ĭ"
-                     "u012F-slab" "į"
-                     "u0131-slab" "ı"
-                     "u0456-slab" "і"
-                     "u0457-slab" "ї")))
+(defparameter *groups*
+  '((one-of (curve "u0028-curved" "("
+                   "u0029-curved" ")")
+     (round "u0028-rounder" "("
+            "u0029-rounder" ")"))
+    (one-of (backslash "u0030-backslash" "0")
+            (diamond "u0030-diamond" "0")
+            (dot "u0030-dotted" "0")
+            (forwardslash "u0030-forwardslash" "0"))
+    (noslab1 "u0031-noslab" "1")
+    (flattop3 "u0033-flattop" "3")
+    (wider "u003C-wider" "<"
+           "u003E-wider" ">")
+    (knife "u0066-knife" "f")
+    (slabi "u0069-slab" "i"
+           "u00EC-slab" "ì"
+           "u00ED-slab" "í"
+           "u00EE-slab" "î"
+           "u00EF-slab" "ï"
+           "u0129-slab" "ĩ"
+           "u012B-slab" "ī"
+           "u012D-slab" "ĭ"
+           "u012F-slab" "į"
+           "u0131-slab" "ı"
+           "u0456-slab" "і"
+           "u0457-slab" "ї"))
   "Things you actually want to permute together.")
 
+(defun verify (spec)
+  (and (symbolp spec)
+       (not (eql spec 'one-of))
+       (find spec (flatten *groups*))))
+(defun mapchoices (spec)
+  "Spec should be one of the names in *groups*."
+  (if (not (verify spec))
+      (error "The spec ~A is INVALID!" spec)
+      ))
 (defun pprint-letters (letter-alist)
   (dolist (p letter-alist)
     (format t "~S ~S~%"
@@ -75,10 +85,11 @@ exec ros -Q -- $0 "$@"
 
 (defun help ()
   (format t "~@{~A~%~}"
-          "generator.ros {ALT-GLYPH-DIRNAME+ | show}"
-          "`show' demonstrates each variant code with its character."
-          "ALT-GLYPH-DIRNAME is something like u0028-curved"
-          "Each glyph is put into the hack directory."))
+          "generator.ros SPEC+"
+          "SPEC should be one of ")
+  (format t "~{~A~%~}"
+          (remove 'one-of
+                  (remove-if #'stringp (flatten *groups*)))))
 (defun remove-hints ()
   (let ((files (uiop:directory-files #P"tt-hinting")))
     (dolist (f files)
@@ -101,14 +112,15 @@ exec ros -Q -- $0 "$@"
 
 (defun main (&rest argv)
   (declare (ignorable argv))
-  (cond ((null argv) (help)
-         (sb-ext:exit :code 0))
-        ((string-equal (first argv) "show")
-         (print (show-characters))
-         (sb-ext:exit :code 0)))
-  (progn (remove-hints)
-         (map-permutations (compose #'build #'flatten) *groups*)))
-
+  (let ((f (first argv)))
+    (if (or (null argv)
+            (find #\? f)
+            (search "help" f)
+            (search "-h" f)
+            (search "-?" f))
+        (help)
+        (progn (remove-hints)
+               (build argv)))))
 
 
 
