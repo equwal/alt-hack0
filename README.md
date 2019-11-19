@@ -1,10 +1,11 @@
 # Hack with an alternative zero.
-#
+
 Like [Hack](https://github.com/ryanoasis/nerd-fonts) fonts? Dislike
 zeros with vertical strikes? Then this package is for you. Desktop (ttf)
 and web (woff) fonts included.
 
-Generated with [alt-hack](https://github.com/source-foundry/alt-hack) glyphs.
+Generated with [alt-hack](https://github.com/source-foundry/alt-hack) glyphs,
+and [the `generator.ros` Common Lisp script](https://github.com/equwal/alt-hack/tree/generator.ros).
 
 The zeros:
 [![forward slashed zero](zero.png)]
