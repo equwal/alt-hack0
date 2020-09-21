@@ -1,5 +1,6 @@
 # Hack with an alternative zero.
 
+[Released font downloads](https://www.equwal.com/alt-hacks.html)
 Like [Hack](https://github.com/ryanoasis/nerd-fonts) fonts? Dislike
 zeros with vertical strikes? Then this package is for you. Desktop (ttf)
 and web (woff) fonts included.
