@@ -1,1 +1,1 @@
-/home/jose/src/github.com/source-foundry/hack
+/home/jose/src/gh/source-foundry/hack
