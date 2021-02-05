@@ -1,5 +1,17 @@
 # Hack with an alternative zero.
 
+Warning:
+
+Generating alt-hacks is confusing. Among the confusions:
+- Installing binaries in your /home/user directory
+- Undocumented dependencies (including the above!)
+- alt-hacks script that I made is lazy about helping you and sucks. To use it:
+$ sbcl
+(ql:quickload :alexandria)
+(ql:quickload :uiop)
+(load "all-fonts.lisp)
+(all-fonts::gen-all-fonts) ; spend forever generating an assload of stuff
+
 [Released font downloads](https://www.equwal.com/alt-hacks.html)
 
 Like [Hack](https://github.com/ryanoasis/nerd-fonts) fonts? Dislike

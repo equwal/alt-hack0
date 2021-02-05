@@ -1,0 +1,16 @@
+#!/bin/sh
+PWD1=$(pwd)
+flatfile () {
+    mkdir -p out
+    cd out || return 1
+    tar -xf ../"$1"
+    cd "$PWD1" || return 1
+    cd "$PWD1"/out/Hack/build/ttf  || return 1
+    tar -cf - * | xz -12 >"$PWD1"/"$1.flat"
+    mv "$PWD1"/"$1.flat" "$PWD1"/"$1"
+    cd "$PWD1" || return 1
+    rm -Rf out
+}
+
+# can't use -exec on shell functions, so do this
+find . -name '*.tar.xz' | while read -r file ; do flatfile "$(echo $file | sed 's/^\.\///')" ; done
